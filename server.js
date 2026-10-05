@@ -566,41 +566,30 @@ async function syncPolar() {
 
   console.log('POLAR SYNC: starting');
 
-  // -------------------------------------------------------
-  // Zeitraum: letzte 90 Tage
-  // Polar erwartet hier einen vollständigen ISO-8601
-  // Datetime-Wert.
-  // -------------------------------------------------------
-
+  // Polar AccessLink erwartet für from/to ein ISO-8601 Datum.
+  // Wir verwenden bewusst YYYY-MM-DD ohne Uhrzeit.
   const now = new Date();
 
-  const to = now.toISOString();
+  const toDate = new Date(now);
+  toDate.setUTCDate(toDate.getUTCDate() + 1);
 
   const fromDate = new Date(now);
+  fromDate.setUTCDate(fromDate.getUTCDate() - 90);
 
-  fromDate.setUTCDate(
-    fromDate.getUTCDate() - 90
-  );
+  const from = fromDate.toISOString().slice(0, 10);
+  const to = toDate.toISOString().slice(0, 10);
 
-  const from = fromDate.toISOString();
+  console.log(`POLAR SYNC: from=${from}`);
+  console.log(`POLAR SYNC: to=${to}`);
 
-  console.log(
-    `POLAR SYNC: Lade Training Sessions von ${from} bis ${to}`
-  );
-
-
-  // -------------------------------------------------------
-  // TRAINING SESSIONS
-  // -------------------------------------------------------
-
+  // Training Sessions
   const sessions = await polarGet(
     '/training-sessions/list',
     {
-      from,
-      to
+      from: from,
+      to: to
     }
   );
-
 
   console.log(
     `POLAR SYNC: ${
@@ -608,15 +597,10 @@ async function syncPolar() {
     } Training Sessions erhalten`
   );
 
-
-  // -------------------------------------------------------
-  // TRAINING TARGETS
-  // -------------------------------------------------------
-
+  // Training Targets
   let targets = {
     trainingTarget: []
   };
-
 
   try {
 
@@ -627,7 +611,6 @@ async function syncPolar() {
         toDate: to
       }
     );
-
 
     console.log(
       `POLAR SYNC: ${
@@ -644,15 +627,9 @@ async function syncPolar() {
 
   }
 
-
-  // -------------------------------------------------------
-  // DATEN SPEICHERN
-  // -------------------------------------------------------
-
   const data = {
 
-    syncedAt:
-      new Date().toISOString(),
+    syncedAt: new Date().toISOString(),
 
     sessions:
       sessions.trainingSessions || [],
@@ -662,17 +639,14 @@ async function syncPolar() {
 
   };
 
-
   await writeJson(
     DATA_FILE,
     data
   );
 
-
   console.log(
     'POLAR SYNC: completed'
   );
-
 
   return data;
 }
