@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
-console.log('MARATHON DASHBOARD VERSION 2026-10-05-POLAR-FIX');
+console.log('MARATHON DASHBOARD VERSION 2026-10-05-POLAR-FIX-2');
 
 app.use(express.json());
 app.use(express.static(__dirname));
@@ -487,44 +487,82 @@ async function polarGet(endpoint, params = {}) {
     throw new Error('POLAR_NOT_CONNECTED');
   }
 
+
   let url =
-    `https://www.polaraccesslink.com/v4/data${endpoint}`;
+    `${API_BASE}${endpoint}`;
+
 
   const query = [];
 
-  for (const [key, value] of Object.entries(params)) {
 
-    if (value !== undefined && value !== null) {
+  for (
+    const [key, value]
+    of Object.entries(params)
+  ) {
+
+    if (
+      value !== undefined &&
+      value !== null
+    ) {
 
       query.push(
         `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
       );
 
     }
+
   }
+
 
   if (query.length > 0) {
-    url += `?${query.join('&')}`;
+
+    url +=
+      `?${query.join('&')}`;
+
   }
 
-  console.log(`POLAR API REQUEST: ${url}`);
 
-  const response = await fetch(url, {
-    method: 'GET',
+  console.log(
+    `POLAR API REQUEST: ${url}`
+  );
 
-    headers: {
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${token}`
-    }
-  });
 
-  const responseText = await response.text();
+  const response =
+    await fetch(
+      url,
+      {
+
+        method: 'GET',
+
+        headers: {
+
+          'Accept':
+            'application/json',
+
+          'Authorization':
+            `Bearer ${token}`
+
+        }
+
+      }
+    );
+
+
+  const responseText =
+    await response.text();
+
 
   console.log(
     `POLAR API RESPONSE: ${response.status}`
   );
 
+
   if (!response.ok) {
+
+    console.error(
+      'POLAR API ERROR:',
+      responseText
+    );
 
     throw new Error(
       `Polar API ${response.status}: ${responseText}`
@@ -532,13 +570,21 @@ async function polarGet(endpoint, params = {}) {
 
   }
 
+
   try {
-    return JSON.parse(responseText);
+
+    return JSON.parse(
+      responseText
+    );
+
   } catch {
+
     throw new Error(
       `Polar API returned invalid JSON: ${responseText}`
     );
+
   }
+
 }
 
 
@@ -548,28 +594,72 @@ async function polarGet(endpoint, params = {}) {
 
 async function syncPolar() {
 
-  console.log('POLAR SYNC: starting');
+  console.log(
+    'POLAR SYNC: starting'
+  );
 
-  // Polar AccessLink erwartet für from/to ein ISO-8601 Datum.
-  // Wir verwenden bewusst YYYY-MM-DD ohne Uhrzeit.
-  const now = new Date();
 
-  const toDate = new Date(now);
-  toDate.setUTCDate(toDate.getUTCDate() + 1);
+  /*
+   * Polar AccessLink benötigt bei Training Sessions
+   * einen Zeitraum mit "from" und "to".
+   *
+   * Wir laden die letzten 90 Tage.
+   */
 
-  const fromDate = new Date(now);
-  fromDate.setUTCDate(fromDate.getUTCDate() - 90);
+  const now =
+    new Date();
 
-  const from = fromDate.toISOString().slice(0, 10);
-  const to = toDate.toISOString().slice(0, 10);
 
-  console.log(`POLAR SYNC: from=${from}`);
-  console.log(`POLAR SYNC: to=${to}`);
+  const toDate =
+    new Date(now);
 
-  // Training Sessions
- const sessions = await polarGet(
-  '/training-sessions/list'
-);
+  toDate.setUTCDate(
+    toDate.getUTCDate() + 1
+  );
+
+
+  const fromDate =
+    new Date(now);
+
+  fromDate.setUTCDate(
+    fromDate.getUTCDate() - 90
+  );
+
+
+  const from =
+    fromDate
+      .toISOString()
+      .slice(0, 10);
+
+
+  const to =
+    toDate
+      .toISOString()
+      .slice(0, 10);
+
+
+  console.log(
+    `POLAR SYNC: from=${from}`
+  );
+
+  console.log(
+    `POLAR SYNC: to=${to}`
+  );
+
+
+  /* =======================================================
+     TRAINING SESSIONS
+     ======================================================= */
+
+  const sessions =
+    await polarGet(
+      '/training-sessions/list',
+      {
+        from,
+        to
+      }
+    );
+
 
   console.log(
     `POLAR SYNC: ${
@@ -577,20 +667,27 @@ async function syncPolar() {
     } Training Sessions erhalten`
   );
 
-  // Training Targets
+
+  /* =======================================================
+     TRAINING TARGETS
+     ======================================================= */
+
   let targets = {
     trainingTarget: []
   };
 
+
   try {
 
-    targets = await polarGet(
-      '/training-target/calendar-targets',
-      {
-        fromDate: from,
-        toDate: to
-      }
-    );
+    targets =
+      await polarGet(
+        '/training-target/calendar-targets',
+        {
+          fromDate: from,
+          toDate: to
+        }
+      );
+
 
     console.log(
       `POLAR SYNC: ${
@@ -607,9 +704,15 @@ async function syncPolar() {
 
   }
 
+
+  /* =======================================================
+     DATEN SPEICHERN
+     ======================================================= */
+
   const data = {
 
-    syncedAt: new Date().toISOString(),
+    syncedAt:
+      new Date().toISOString(),
 
     sessions:
       sessions.trainingSessions || [],
@@ -619,17 +722,21 @@ async function syncPolar() {
 
   };
 
+
   await writeJson(
     DATA_FILE,
     data
   );
 
+
   console.log(
     'POLAR SYNC: completed'
   );
 
+
   return data;
 }
+
 
 /* =========================================================
    API: CONFIG
@@ -681,6 +788,7 @@ app.get(
         .send(
           'Polar ist noch nicht konfiguriert. Bitte Render Environment Variables prüfen.'
         );
+
     }
 
 
@@ -771,6 +879,7 @@ app.get(
           .send(
             'Kein Authorization Code von Polar erhalten.'
           );
+
       }
 
 
@@ -795,6 +904,7 @@ app.get(
           .send(
             'Ungültiger OAuth State. Bitte die Polar-Verbindung erneut starten.'
           );
+
       }
 
 
@@ -868,6 +978,7 @@ app.get(
           .send(
             `Polar Token-Austausch fehlgeschlagen (${response.status}): ${errorText}`
           );
+
       }
 
 
@@ -899,16 +1010,6 @@ app.get(
       );
 
 
-      /*
-       * WICHTIG:
-       *
-       * Hier wird NICHT mehr direkt syncPolar()
-       * aufgerufen.
-       *
-       * OAuth und Synchronisierung sind damit
-       * voneinander getrennt.
-       */
-
       console.log(
         'POLAR OAUTH: Verbindung erfolgreich'
       );
@@ -917,6 +1018,7 @@ app.get(
       res.redirect(
         '/?connected=1'
       );
+
 
     } catch (error) {
 
@@ -954,7 +1056,8 @@ app.post(
 
       res.json({
 
-        ok: true,
+        ok:
+          true,
 
         syncedAt:
           data.syncedAt,
@@ -963,6 +1066,7 @@ app.post(
           data.sessions.length
 
       });
+
 
     } catch (error) {
 
@@ -983,7 +1087,8 @@ app.post(
         .status(status)
         .json({
 
-          ok: false,
+          ok:
+            false,
 
           error:
             error.message
@@ -1009,11 +1114,14 @@ app.get(
         DATA_FILE,
         {
 
-          syncedAt: null,
+          syncedAt:
+            null,
 
-          sessions: [],
+          sessions:
+            [],
 
-          targets: []
+          targets:
+            []
 
         }
       );
@@ -1098,7 +1206,9 @@ app.post(
     );
 
 
-    res.json(next);
+    res.json(
+      next
+    );
 
   }
 );
@@ -1117,13 +1227,17 @@ app.get(
         SETTINGS_FILE,
         {
 
-          maxHr: 187,
+          maxHr:
+            187,
 
-          restHr: 55,
+          restHr:
+            55,
 
-          goalPace: 4.5,
+          goalPace:
+            4.5,
 
-          targetMarathonHours: 3.17
+          targetMarathonHours:
+            3.17
 
         }
       );
@@ -1156,6 +1270,7 @@ app.get(
         .send(
           'Unauthorized'
         );
+
     }
 
 
@@ -1167,7 +1282,8 @@ app.get(
 
       res.json({
 
-        ok: true,
+        ok:
+          true,
 
         syncedAt:
           data.syncedAt,
@@ -1176,6 +1292,7 @@ app.get(
           data.sessions.length
 
       });
+
 
     } catch (error) {
 
@@ -1189,7 +1306,8 @@ app.get(
         .status(500)
         .json({
 
-          ok: false,
+          ok:
+            false,
 
           error:
             error.message
@@ -1229,8 +1347,9 @@ app.listen(
   () => {
 
     console.log(
-      `Zürich Marathon Dashboard läuft auf ${BASE_URL}`
+      `Marathon Dashboard läuft auf ${BASE_URL}`
     );
 
   }
 );
+```
