@@ -103,11 +103,25 @@ async function polarGet(endpoint, params={}) {
 }
 
 async function syncPolar() {
-  const from = '2026-09-01';
-  const to = addDays(isoDate(new Date()), 1);
-  const sessions = await polarGet('/training-sessions/list', {from,to});
-  const targets = await polarGet('/training-target/calendar-targets', {from,to}).catch(()=>({trainingTargets:[]}));
-  const data = {syncedAt:new Date().toISOString(), sessions:sessions.trainingSessions||[], targets:targets.trainingTargets||[]};
+  const from = '2026-09-01T00:00:00Z';
+  const to = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  const sessions = await polarGet('/training-sessions/list', {
+    from,
+    to
+  });
+
+  const targets = await polarGet('/training-target/calendar-targets', {
+    fromDate: from,
+    toDate: to
+  }).catch(() => ({ trainingTarget: [] }));
+
+  const data = {
+    syncedAt: new Date().toISOString(),
+    sessions: sessions.trainingSessions || [],
+    targets: targets.trainingTarget || []
+  };
+
   await writeJson(DATA_FILE, data);
   return data;
 }
