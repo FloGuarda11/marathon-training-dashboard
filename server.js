@@ -479,82 +479,66 @@ async function polarToken() {
    POLAR API REQUEST
    ========================================================= */
 
-async function polarGet(
-  endpoint,
-  params = {}
-) {
+async function polarGet(endpoint, params = {}) {
 
-  const token =
-    await polarToken();
-
+  const token = await polarToken();
 
   if (!token) {
-    throw new Error(
-      'POLAR_NOT_CONNECTED'
-    );
+    throw new Error('POLAR_NOT_CONNECTED');
   }
 
+  let url =
+    `https://www.polaraccesslink.com/v4/data${endpoint}`;
 
-  const url =
-    new URL(
-      `${API_BASE}${endpoint}`
-    );
+  const query = [];
 
+  for (const [key, value] of Object.entries(params)) {
 
-  for (
-    const [key, value]
-    of Object.entries(params)
-  ) {
+    if (value !== undefined && value !== null) {
 
-    if (
-      value !== undefined &&
-      value !== null
-    ) {
-
-      url.searchParams.append(
-        key,
-        value
+      query.push(
+        `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
       );
+
     }
   }
 
+  if (query.length > 0) {
+    url += `?${query.join('&')}`;
+  }
+
+  console.log(`POLAR API REQUEST: ${url}`);
+
+  const response = await fetch(url, {
+    method: 'GET',
+
+    headers: {
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  const responseText = await response.text();
 
   console.log(
-    `POLAR API GET: ${url.pathname}${url.search}`
+    `POLAR API RESPONSE: ${response.status}`
   );
-
-
-  const response =
-    await fetch(
-      url,
-      {
-
-        headers: {
-
-          Accept:
-            'application/json',
-
-          Authorization:
-            `Bearer ${token}`
-
-        }
-
-      }
-    );
-
 
   if (!response.ok) {
 
-    const errorText =
-      await response.text();
-
     throw new Error(
-      `Polar API ${response.status}: ${errorText}`
+      `Polar API ${response.status}: ${responseText}`
     );
+
   }
 
-
-  return response.json();
+  try {
+    return JSON.parse(responseText);
+  } catch {
+    throw new Error(
+      `Polar API returned invalid JSON: ${responseText}`
+    );
+  }
 }
 
 
