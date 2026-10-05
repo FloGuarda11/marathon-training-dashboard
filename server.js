@@ -566,20 +566,32 @@ async function syncPolar() {
 
   console.log('POLAR SYNC: starting');
 
-  // Wir laden die letzten 90 Tage Trainingsdaten.
-  // Polar verlangt dafür "from" und "to".
-  const today = new Date();
+  // -------------------------------------------------------
+  // Zeitraum: letzte 90 Tage
+  // Polar erwartet hier einen vollständigen ISO-8601
+  // Datetime-Wert.
+  // -------------------------------------------------------
 
-  const to = today.toISOString().slice(0, 10);
+  const now = new Date();
 
-  const fromDate = new Date(today);
-  fromDate.setUTCDate(fromDate.getUTCDate() - 90);
+  const to = now.toISOString();
 
-  const from = fromDate.toISOString().slice(0, 10);
+  const fromDate = new Date(now);
+
+  fromDate.setUTCDate(
+    fromDate.getUTCDate() - 90
+  );
+
+  const from = fromDate.toISOString();
 
   console.log(
     `POLAR SYNC: Lade Training Sessions von ${from} bis ${to}`
   );
+
+
+  // -------------------------------------------------------
+  // TRAINING SESSIONS
+  // -------------------------------------------------------
 
   const sessions = await polarGet(
     '/training-sessions/list',
@@ -589,6 +601,7 @@ async function syncPolar() {
     }
   );
 
+
   console.log(
     `POLAR SYNC: ${
       sessions.trainingSessions?.length || 0
@@ -596,11 +609,14 @@ async function syncPolar() {
   );
 
 
-  // Polar Training Targets ebenfalls mit
-  // dem korrekten Parameter-Namen abrufen.
+  // -------------------------------------------------------
+  // TRAINING TARGETS
+  // -------------------------------------------------------
+
   let targets = {
     trainingTarget: []
   };
+
 
   try {
 
@@ -611,6 +627,7 @@ async function syncPolar() {
         toDate: to
       }
     );
+
 
     console.log(
       `POLAR SYNC: ${
@@ -627,6 +644,10 @@ async function syncPolar() {
 
   }
 
+
+  // -------------------------------------------------------
+  // DATEN SPEICHERN
+  // -------------------------------------------------------
 
   const data = {
 
