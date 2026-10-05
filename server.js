@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
 const PORT = Number(process.env.PORT || 3000);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -161,5 +161,5 @@ app.get('/api/cron/sync',async(req,res)=>{
   try { const d=await syncPolar(); res.json({ok:true,syncedAt:d.syncedAt,count:d.sessions.length}); }
   catch(e){res.status(500).json({ok:false,error:e.message});}
 });
-app.use((req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
+app.use((req,res)=>res.sendFile(path.join(__dirname,'index.html')));
 app.listen(PORT,()=>console.log(`Zürich Marathon Dashboard: ${BASE_URL}`));
