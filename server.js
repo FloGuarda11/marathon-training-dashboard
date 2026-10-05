@@ -564,29 +564,30 @@ async function polarGet(
 
 async function syncPolar() {
 
+  console.log('POLAR SYNC: starting');
+
+  // Wir laden die letzten 90 Tage Trainingsdaten.
+  // Polar verlangt dafür "from" und "to".
+  const today = new Date();
+
+  const to = today.toISOString().slice(0, 10);
+
+  const fromDate = new Date(today);
+  fromDate.setUTCDate(fromDate.getUTCDate() - 90);
+
+  const from = fromDate.toISOString().slice(0, 10);
+
   console.log(
-    'POLAR SYNC: starting'
+    `POLAR SYNC: Lade Training Sessions von ${from} bis ${to}`
   );
 
-
-  /*
-   * WICHTIG:
-   *
-   * Hier werden bewusst KEINE "from"- oder "to"-Parameter
-   * verwendet.
-   *
-   * Dadurch vermeiden wir den bisherigen:
-   *
-   * "Value for key 'from' could not be parsed as datetime"
-   *
-   * Fehler.
-   */
-
-  const sessions =
-    await polarGet(
-      '/training-sessions/list'
-    );
-
+  const sessions = await polarGet(
+    '/training-sessions/list',
+    {
+      from,
+      to
+    }
+  );
 
   console.log(
     `POLAR SYNC: ${
@@ -595,18 +596,21 @@ async function syncPolar() {
   );
 
 
+  // Polar Training Targets ebenfalls mit
+  // dem korrekten Parameter-Namen abrufen.
   let targets = {
     trainingTarget: []
   };
 
-
   try {
 
-    targets =
-      await polarGet(
-        '/training-target/calendar-targets'
-      );
-
+    targets = await polarGet(
+      '/training-target/calendar-targets',
+      {
+        fromDate: from,
+        toDate: to
+      }
+    );
 
     console.log(
       `POLAR SYNC: ${
@@ -651,7 +655,6 @@ async function syncPolar() {
 
   return data;
 }
-
 
 /* =========================================================
    API: CONFIG
