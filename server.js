@@ -606,46 +606,25 @@ async function syncPolar() {
    * Wir laden die letzten 90 Tage.
    */
 
-  const now =
-    new Date();
+ const now = new Date();
 
+const fromDate = new Date(now);
+fromDate.setUTCDate(
+  fromDate.getUTCDate() - 90
+);
+fromDate.setUTCHours(0, 0, 0, 0);
 
-  const toDate =
-    new Date(now);
+const toDate = new Date(now);
+toDate.setUTCDate(
+  toDate.getUTCDate() + 1
+);
+toDate.setUTCHours(0, 0, 0, 0);
 
-  toDate.setUTCDate(
-    toDate.getUTCDate() + 1
-  );
+const from = fromDate.toISOString();
+const to = toDate.toISOString();
 
-
-  const fromDate =
-    new Date(now);
-
-  fromDate.setUTCDate(
-    fromDate.getUTCDate() - 90
-  );
-
-
-  const from =
-    fromDate
-      .toISOString()
-      .slice(0, 10);
-
-
-  const to =
-    toDate
-      .toISOString()
-      .slice(0, 10);
-
-
-  console.log(
-    `POLAR SYNC: from=${from}`
-  );
-
-  console.log(
-    `POLAR SYNC: to=${to}`
-  );
-
+console.log(`POLAR SYNC: from=${from}`);
+console.log(`POLAR SYNC: to=${to}`);
 
   /* =======================================================
      TRAINING SESSIONS
