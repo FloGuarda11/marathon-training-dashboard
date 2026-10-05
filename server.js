@@ -583,13 +583,9 @@ async function syncPolar() {
   console.log(`POLAR SYNC: to=${to}`);
 
   // Training Sessions
-  const sessions = await polarGet(
-    '/training-sessions/list',
-    {
-      from: from,
-      to: to
-    }
-  );
+ const sessions = await polarGet(
+  '/training-sessions/list'
+);
 
   console.log(
     `POLAR SYNC: ${
