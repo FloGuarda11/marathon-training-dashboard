@@ -630,22 +630,20 @@ console.log(`POLAR SYNC: to=${to}`);
      TRAINING SESSIONS
      ======================================================= */
 
-  const sessions =
-    await polarGet(
-      '/training-sessions/list',
-      {
-        from,
-        to
-      }
-    );
+console.log(
+  'POLAR SYNC: Lade Training Sessions'
+);
 
-
-  console.log(
-    `POLAR SYNC: ${
-      sessions.trainingSessions?.length || 0
-    } Training Sessions erhalten`
+const sessions =
+  await polarGet(
+    '/training-sessions/list'
   );
 
+console.log(
+  `POLAR SYNC: ${
+    sessions.trainingSessions?.length || 0
+  } Training Sessions erhalten`
+);
 
   /* =======================================================
      TRAINING TARGETS
