@@ -109,7 +109,16 @@ function addDays(dateString, days) {
 
 
 function polarIso(date) {
-  return new Date(date).toISOString();
+  const d = new Date(date);
+
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const hours = String(d.getUTCHours()).padStart(2, '0');
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(d.getUTCSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
 
@@ -746,11 +755,11 @@ async function syncPolar() {
     0
   );
 
-  const from =
-    isoDate(fromDate);
+const from =
+  polarIso(fromDate);
 
-  const to =
-    isoDate(toDate);
+const to =
+  polarIso(toDate);
 
   console.log(
     `POLAR SYNC: from=${from}`
