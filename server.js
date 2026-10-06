@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
-console.log('MARATHON DASHBOARD VERSION 2026-10-05-POLAR-FIX-2');
+console.log('MARATHON DASHBOARD VERSION 2026-10-06-POLAR-FIX-3');
 
 app.use(express.json());
 app.use(express.static(__dirname));
@@ -108,6 +108,11 @@ function addDays(dateString, days) {
 }
 
 
+function polarIso(date) {
+  return new Date(date).toISOString();
+}
+
+
 /* =========================================================
    MARATHON TRAININGSPLAN
    ========================================================= */
@@ -204,38 +209,50 @@ function planWeek(weekIndex) {
 
 
   if (weekIndex >= 8 && weekIndex < 16) {
+
     thu =
       '12–14 km, darin 6–8 km @ 5:00–5:15/km';
+
   }
 
 
   if (weekIndex >= 16 && weekIndex < 23) {
+
     thu =
       '12–16 km, darin 8–10 km @ 4:45–5:00/km';
+
   }
 
 
   if (weekIndex === 23) {
+
     thu =
       '14 km, darin 10 km @ 4:30–4:35/km';
+
   }
 
 
   if (weekIndex === 24) {
+
     thu =
       '12 km locker, darin 5 km @ 4:35–4:45/km';
+
   }
 
 
   if (weekIndex === 25) {
+
     thu =
       '9 km locker, 3 km @ 4:30–4:40/km';
+
   }
 
 
   if (weekIndex === 26) {
+
     thu =
       '6 km sehr locker + 4 Steigerungen';
+
   }
 
 
@@ -244,74 +261,98 @@ function planWeek(weekIndex) {
 
 
   if (weekIndex === 7) {
+
     sun =
       '24 km, letzte 5 km @ 5:00/km';
+
   }
 
 
   if (weekIndex === 9) {
+
     sun =
       '26 km, letzte 8 km @ 5:00/km';
+
   }
 
 
   if (weekIndex === 11) {
+
     sun =
       '28 km, letzte 8 km @ 4:55–5:00/km';
+
   }
 
 
   if (weekIndex === 13) {
+
     sun =
       '30 km, letzte 10 km @ 4:50–5:00/km';
+
   }
 
 
   if (weekIndex === 15) {
+
     sun =
       '30 km, 12 km @ 4:45–4:50/km im letzten Drittel';
+
   }
 
 
   if (weekIndex === 17) {
+
     sun =
       '30 km, 10 km @ 4:40–4:45/km';
+
   }
 
 
   if (weekIndex === 19) {
+
     sun =
       '32 km: 8 km @ 5:15 + 10 km @ 4:45 + 10 km @ 4:30–4:35 + 4 km locker';
+
   }
 
 
   if (weekIndex === 21) {
+
     sun =
       '30 km, 12 km @ 4:35–4:45/km';
+
   }
 
 
   if (weekIndex === 23) {
+
     sun =
       '32 km, davon 10 km @ 4:30–4:35/km';
+
   }
 
 
   if (weekIndex === 24) {
+
     sun =
       '24 km locker, letzte 5 km moderat';
+
   }
 
 
   if (weekIndex === 25) {
+
     sun =
       '18 km locker';
+
   }
 
 
   if (weekIndex === 26) {
+
     sun =
       '12 km sehr locker';
+
   }
 
 
@@ -355,7 +396,9 @@ function planWeek(weekIndex) {
       }
 
     ]
+
   };
+
 }
 
 
@@ -379,16 +422,33 @@ async function polarToken() {
 
 
   if (!auth?.refresh_token) {
+
     return null;
+
   }
 
 
   if (
     auth.expires_at &&
     Date.now() <
-      auth.expires_at - 120000
+      auth.expires_at - 120000 &&
+    auth.access_token
   ) {
+
     return auth.access_token;
+
+  }
+
+
+  if (
+    !CLIENT_ID ||
+    !CLIENT_SECRET
+  ) {
+
+    throw new Error(
+      'POLAR_CONFIG_MISSING: POLAR_CLIENT_ID oder POLAR_CLIENT_SECRET fehlt.'
+    );
+
   }
 
 
@@ -430,7 +490,10 @@ async function polarToken() {
             `Basic ${basic}`,
 
           'Content-Type':
-            'application/x-www-form-urlencoded'
+            'application/x-www-form-urlencoded',
+
+          Accept:
+            'application/json'
 
         },
 
@@ -440,19 +503,49 @@ async function polarToken() {
     );
 
 
+  const responseText =
+    await response.text();
+
+
   if (!response.ok) {
 
-    const errorText =
-      await response.text();
+    console.error(
+      'POLAR TOKEN ERROR:',
+      responseText
+    );
 
     throw new Error(
-      `Polar token refresh failed (${response.status}): ${errorText}`
+      `Polar token refresh failed (${response.status}): ${responseText}`
     );
+
   }
 
 
-  const token =
-    await response.json();
+  let token;
+
+  try {
+
+    token =
+      JSON.parse(
+        responseText
+      );
+
+  } catch {
+
+    throw new Error(
+      `Polar token refresh returned invalid JSON: ${responseText}`
+    );
+
+  }
+
+
+  if (!token.access_token) {
+
+    throw new Error(
+      'Polar token refresh succeeded but no access_token was returned.'
+    );
+
+  }
 
 
   await writeJson(
@@ -465,7 +558,9 @@ async function polarToken() {
 
       expires_at:
         Date.now() +
-        Number(token.expires_in || 0) * 1000
+        Number(
+          token.expires_in || 0
+        ) * 1000
 
     }
   );
@@ -479,20 +574,38 @@ async function polarToken() {
    POLAR API REQUEST
    ========================================================= */
 
-async function polarGet(endpoint, params = {}) {
+async function polarGet(
+  endpoint,
+  params = {}
+) {
 
-  const token = await polarToken();
+  const token =
+    await polarToken();
+
 
   if (!token) {
-    throw new Error('POLAR_NOT_CONNECTED');
+
+    throw new Error(
+      'POLAR_NOT_CONNECTED'
+    );
+
   }
 
 
-  let url =
-    `${API_BASE}${endpoint}`;
+  /*
+   * WICHTIG:
+   *
+   * Query-Parameter werden nicht mehr manuell
+   * an einen String angehängt.
+   *
+   * URL.searchParams stellt sicher, dass from/to
+   * tatsächlich Bestandteil des Requests sind.
+   */
 
-
-  const query = [];
+  const url =
+    new URL(
+      `${API_BASE}${endpoint}`
+    );
 
 
   for (
@@ -502,11 +615,13 @@ async function polarGet(endpoint, params = {}) {
 
     if (
       value !== undefined &&
-      value !== null
+      value !== null &&
+      String(value).trim() !== ''
     ) {
 
-      query.push(
-        `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
+      url.searchParams.set(
+        key,
+        String(value)
       );
 
     }
@@ -514,32 +629,25 @@ async function polarGet(endpoint, params = {}) {
   }
 
 
-  if (query.length > 0) {
-
-    url +=
-      `?${query.join('&')}`;
-
-  }
-
-
   console.log(
-    `POLAR API REQUEST: ${url}`
+    'POLAR API REQUEST:',
+    url.toString()
   );
 
 
   const response =
     await fetch(
-      url,
+      url.toString(),
       {
 
         method: 'GET',
 
         headers: {
 
-          'Accept':
+          Accept:
             'application/json',
 
-          'Authorization':
+          Authorization:
             `Bearer ${token}`
 
         }
@@ -567,6 +675,13 @@ async function polarGet(endpoint, params = {}) {
     throw new Error(
       `Polar API ${response.status}: ${responseText}`
     );
+
+  }
+
+
+  if (!responseText) {
+
+    return {};
 
   }
 
@@ -600,57 +715,120 @@ async function syncPolar() {
 
 
   /*
-   * Polar AccessLink benötigt bei Training Sessions
-   * einen Zeitraum mit "from" und "to".
+   * Letzte 90 Tage.
    *
-   * Wir laden die letzten 90 Tage.
+   * Polar bekommt vollständige ISO-8601-Datetimes.
+   *
+   * Beispiel:
+   * 2026-07-08T00:00:00.000Z
    */
 
- const now = new Date();
+  const now =
+    new Date();
 
-const fromDate = new Date(now);
-fromDate.setUTCDate(
-  fromDate.getUTCDate() - 90
-);
-fromDate.setUTCHours(0, 0, 0, 0);
 
-const toDate = new Date(now);
-toDate.setUTCDate(
-  toDate.getUTCDate() + 1
-);
-toDate.setUTCHours(0, 0, 0, 0);
+  const fromDate =
+    new Date(now);
 
-const from = fromDate.toISOString();
-const to = toDate.toISOString();
 
-console.log(`POLAR SYNC: from=${from}`);
-console.log(`POLAR SYNC: to=${to}`);
+  fromDate.setUTCDate(
+    fromDate.getUTCDate() - 90
+  );
+
+
+  fromDate.setUTCHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+
+  const toDate =
+    new Date(now);
+
+
+  toDate.setUTCDate(
+    toDate.getUTCDate() + 1
+  );
+
+
+  toDate.setUTCHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+
+  const from =
+    polarIso(
+      fromDate
+    );
+
+
+  const to =
+    polarIso(
+      toDate
+    );
+
+
+  console.log(
+    `POLAR SYNC: from=${from}`
+  );
+
+
+  console.log(
+    `POLAR SYNC: to=${to}`
+  );
+
 
   /* =======================================================
      TRAINING SESSIONS
      ======================================================= */
 
-console.log(
-  'POLAR SYNC: Lade Training Sessions'
-);
-
-const sessions =
-  await polarGet(
-    '/training-sessions/list'
+  console.log(
+    'POLAR SYNC: Lade Training Sessions'
   );
 
-console.log(
-  `POLAR SYNC: ${
-    sessions.trainingSessions?.length || 0
-  } Training Sessions erhalten`
-);
+
+  /*
+   * DAS IST DER ENTSCHEIDENDE FIX.
+   *
+   * Vorher:
+   *
+   * polarGet('/training-sessions/list')
+   *
+   * Dadurch wurde KEIN from und KEIN to übertragen.
+   *
+   * Jetzt:
+   */
+
+  const sessions =
+    await polarGet(
+      '/training-sessions/list',
+      {
+        from,
+        to
+      }
+    );
+
+
+  console.log(
+    `POLAR SYNC: ${
+      sessions.trainingSessions?.length || 0
+    } Training Sessions erhalten`
+  );
+
 
   /* =======================================================
      TRAINING TARGETS
      ======================================================= */
 
   let targets = {
+
     trainingTarget: []
+
   };
 
 
@@ -660,8 +838,13 @@ console.log(
       await polarGet(
         '/training-target/calendar-targets',
         {
-          fromDate: from,
-          toDate: to
+
+          fromDate:
+            from,
+
+          toDate:
+            to
+
         }
       );
 
@@ -672,7 +855,13 @@ console.log(
       } Training Targets erhalten`
     );
 
+
   } catch (error) {
+
+    /*
+     * Training Targets dürfen den gesamten
+     * Synchronisationsprozess nicht blockieren.
+     */
 
     console.warn(
       'POLAR TARGETS:',
@@ -691,6 +880,10 @@ console.log(
     syncedAt:
       new Date().toISOString(),
 
+    from,
+
+    to,
+
     sessions:
       sessions.trainingSessions || [],
 
@@ -707,11 +900,14 @@ console.log(
 
 
   console.log(
-    'POLAR SYNC: completed'
+    `POLAR SYNC: completed – ${
+      data.sessions.length
+    } Sessions gespeichert`
   );
 
 
   return data;
+
 }
 
 
@@ -788,7 +984,9 @@ app.get(
 
 
     const url =
-      new URL(AUTH_URL);
+      new URL(
+        AUTH_URL
+      );
 
 
     url.searchParams.set(
@@ -849,7 +1047,9 @@ app.get(
       );
 
 
-      if (!req.query.code) {
+      if (
+        !req.query.code
+      ) {
 
         return res
           .status(400)
@@ -893,6 +1093,20 @@ app.get(
       );
 
 
+      if (
+        !CLIENT_ID ||
+        !CLIENT_SECRET
+      ) {
+
+        return res
+          .status(500)
+          .send(
+            'Polar Client ID oder Client Secret fehlt.'
+          );
+
+      }
+
+
       const basic =
         Buffer
           .from(
@@ -908,7 +1122,9 @@ app.get(
             'authorization_code',
 
           code:
-            req.query.code,
+            String(
+              req.query.code
+            ),
 
           redirect_uri:
             `${BASE_URL}/auth/polar/callback`
@@ -934,7 +1150,10 @@ app.get(
                 `Basic ${basic}`,
 
               'Content-Type':
-                'application/x-www-form-urlencoded'
+                'application/x-www-form-urlencoded',
+
+              Accept:
+                'application/json'
 
             },
 
@@ -944,23 +1163,59 @@ app.get(
         );
 
 
+      const responseText =
+        await response.text();
+
+
       if (!response.ok) {
 
-        const errorText =
-          await response.text();
+        console.error(
+          'POLAR OAUTH TOKEN ERROR:',
+          responseText
+        );
 
 
         return res
           .status(502)
           .send(
-            `Polar Token-Austausch fehlgeschlagen (${response.status}): ${errorText}`
+            `Polar Token-Austausch fehlgeschlagen (${response.status}): ${responseText}`
           );
 
       }
 
 
-      const token =
-        await response.json();
+      let token;
+
+
+      try {
+
+        token =
+          JSON.parse(
+            responseText
+          );
+
+      } catch {
+
+        return res
+          .status(502)
+          .send(
+            `Polar Token-Antwort ist kein gültiges JSON: ${responseText}`
+          );
+
+      }
+
+
+      if (
+        !token.access_token
+      ) {
+
+        return res
+          .status(502)
+          .send(
+            'Polar hat keinen Access Token zurückgegeben.'
+          );
+
+      }
 
 
       console.log(
@@ -1092,6 +1347,12 @@ app.get(
         {
 
           syncedAt:
+            null,
+
+          from:
+            null,
+
+          to:
             null,
 
           sessions:
