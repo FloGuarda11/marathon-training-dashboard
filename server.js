@@ -724,7 +724,8 @@ async function syncPolar() {
 
   /*
    * Polar Training Sessions:
-   * from/to werden als YYYY-MM-DD übertragen.
+   * from/to werden als ISO-8601-Datetime übertragen.
+   * Polar erlaubt maximal 90 Tage pro Abfrage.
    */
 
   const now = new Date();
@@ -732,7 +733,7 @@ async function syncPolar() {
   const fromDate = new Date(now);
 
   fromDate.setUTCDate(
-    fromDate.getUTCDate() - 90
+    fromDate.getUTCDate() - 89
   );
 
   fromDate.setUTCHours(
@@ -755,11 +756,11 @@ async function syncPolar() {
     0
   );
 
-const from =
-  polarIso(fromDate);
+  const from =
+    polarIso(fromDate);
 
-const to =
-  polarIso(toDate);
+  const to =
+    polarIso(toDate);
 
   console.log(
     `POLAR SYNC: from=${from}`
