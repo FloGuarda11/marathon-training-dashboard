@@ -713,28 +713,18 @@ async function syncPolar() {
     'POLAR SYNC: starting'
   );
 
-
   /*
-   * Letzte 90 Tage.
-   *
-   * Polar bekommt vollständige ISO-8601-Datetimes.
-   *
-   * Beispiel:
-   * 2026-07-08T00:00:00.000Z
+   * Polar Training Sessions:
+   * from/to werden als YYYY-MM-DD übertragen.
    */
 
-  const now =
-    new Date();
+  const now = new Date();
 
-
-  const fromDate =
-    new Date(now);
-
+  const fromDate = new Date(now);
 
   fromDate.setUTCDate(
     fromDate.getUTCDate() - 90
   );
-
 
   fromDate.setUTCHours(
     0,
@@ -743,15 +733,11 @@ async function syncPolar() {
     0
   );
 
-
-  const toDate =
-    new Date(now);
-
+  const toDate = new Date(now);
 
   toDate.setUTCDate(
     toDate.getUTCDate() + 1
   );
-
 
   toDate.setUTCHours(
     0,
@@ -760,23 +746,15 @@ async function syncPolar() {
     0
   );
 
-
   const from =
-    polarIso(
-      fromDate
-    );
-
+    isoDate(fromDate);
 
   const to =
-    polarIso(
-      toDate
-    );
-
+    isoDate(toDate);
 
   console.log(
     `POLAR SYNC: from=${from}`
   );
-
 
   console.log(
     `POLAR SYNC: to=${to}`
@@ -791,28 +769,14 @@ async function syncPolar() {
     'POLAR SYNC: Lade Training Sessions'
   );
 
-
-  /*
-   * DAS IST DER ENTSCHEIDENDE FIX.
-   *
-   * Vorher:
-   *
-   * polarGet('/training-sessions/list')
-   *
-   * Dadurch wurde KEIN from und KEIN to übertragen.
-   *
-   * Jetzt:
-   */
-
   const sessions =
     await polarGet(
       '/training-sessions/list',
       {
-        from,
-        to
+        from: from,
+        to: to
       }
     );
-
 
   console.log(
     `POLAR SYNC: ${
@@ -826,11 +790,8 @@ async function syncPolar() {
      ======================================================= */
 
   let targets = {
-
     trainingTarget: []
-
   };
-
 
   try {
 
@@ -838,16 +799,10 @@ async function syncPolar() {
       await polarGet(
         '/training-target/calendar-targets',
         {
-
-          fromDate:
-            from,
-
-          toDate:
-            to
-
+          fromDate: from,
+          toDate: to
         }
       );
-
 
     console.log(
       `POLAR SYNC: ${
@@ -855,13 +810,7 @@ async function syncPolar() {
       } Training Targets erhalten`
     );
 
-
   } catch (error) {
-
-    /*
-     * Training Targets dürfen den gesamten
-     * Synchronisationsprozess nicht blockieren.
-     */
 
     console.warn(
       'POLAR TARGETS:',
@@ -892,12 +841,10 @@ async function syncPolar() {
 
   };
 
-
   await writeJson(
     DATA_FILE,
     data
   );
-
 
   console.log(
     `POLAR SYNC: completed – ${
@@ -905,12 +852,8 @@ async function syncPolar() {
     } Sessions gespeichert`
   );
 
-
   return data;
-
 }
-
-
 /* =========================================================
    API: CONFIG
    ========================================================= */
