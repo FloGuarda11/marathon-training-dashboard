@@ -40,21 +40,33 @@ function sessionSport(s) {
 }
 
 function isRun(s) {
-  const sport = sessionSport(s);
+  const sport = s.sport;
 
-  // Falls Polar keine Sportart übermittelt, behalten wir
-  // die bisherige Fallback-Logik bei.
-  if (!sport.trim()) return true;
+  // Polar liefert bei deinem Lauf sport.id = "1".
+  // Diesen Eintrag zunächst als Lauf akzeptieren.
+  if (sport && String(sport.id) === "1") {
+    return true;
+  }
 
-  return [
-    'run',
-    'running',
-    'laufen',
-    'jogging',
-    'trail running',
-    'road running',
-    'treadmill'
-  ].some(term => sport.includes(term));
+  const values = [
+    typeof sport === "string" ? sport : "",
+    sport?.name,
+    sport?.title,
+    s.sportName,
+    s.sportType,
+    s.activityType
+  ];
+
+  const name = values
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    name.includes("run") ||
+    name.includes("laufen") ||
+    name.includes("jogging")
+  );
 }
 
 function sessionDate(s) {
