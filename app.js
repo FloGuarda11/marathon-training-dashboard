@@ -124,40 +124,128 @@ function weekSessions(w) {
 }
 
 
-function match(wi, planned) {
-  const week = state.data.plan[wi];
-  const runs = weekSessions(week);
 
-  if (!runs.length) return null;
+function plannedDistanceKm(planned) {
+  const detail = planned.detail || "";
 
-  // Nur Läufe in einem passenden Zeitfenster zuordnen.
-  // Ein Lauf wird nicht automatisch einer weit entfernten
-  // geplanten Einheit zugeordnet.
-  const plannedDate = new Date(
-    planned.date + "T12:00:00"
+  // Bereich wie "10–12 km": Mittelwert verwenden
+  const range = detail.match(
+    /(\d+(?:[.,]\d+)?)\s*(?:–|-|bis)\s*(\d+(?:[.,]\d+)?)\s*km/i
   );
 
-  const candidates = runs
-    .map(s => {
-      const runDate = new Date(s.startTime);
-      const daysApart = Math.abs(
-        (new Date(
-          runDate.getFullYear(),
-          runDate.getMonth(),
-          runDate.getDate()
-        ) - new Date(
-          plannedDate.getFullYear(),
-          plannedDate.getMonth(),
-          plannedDate.getDate()
-        )) / 86400000
+  if (range) {
+    return (
+      (Number(range[1].replace(",", ".")) +
+       Number(range[2].replace(",", "."))) / 2
+    );
+  }
+
+  // Einzelne Distanz wie "14 km langer Lauf"
+  const single = detail.match(
+    /(\d+(?:[.,]\d+)?)\s*km/i
+  );
+
+  return single
+    ? Number(single[1].replace(",", "."))
+    : null;
+}
+
+function matchWeek(wi) {
+  const week = state.data.plan[wi];
+  const runs = weekSessions(week);
+  const planned = week.sessions;
+
+  const result = new Map();
+  const usedRuns = new Set();
+  const candidates = [];
+
+  for (let pi = 0; pi < planned.length; pi++) {
+    const workout = planned[pi];
+    const targetKm = plannedDistanceKm(workout);
+    const isLongRun =
+      /longrun|langer lauf/i.test(
+        (workout.title || "") + " " + (workout.detail || "")
       );
 
-      return { s, daysApart };
-    })
-    .filter(x => x.daysApart <= 1)
-    .sort((a, b) => a.daysApart - b.daysApart);
+    for (let ri = 0; ri < runs.length; ri++) {
+      const run = runs[ri];
+      const runDate = String(run.startTime || "").slice(0, 10);
 
-  return candidates[0]?.s || null;
+      if (!runDate) continue;
+
+      const plannedDay = new Date(
+        workout.date + "T12:00:00"
+      );
+      const actualDay = new Date(
+        runDate + "T12:00:00"
+      );
+
+      const daysApart = Math.round(
+        Math.abs(actualDay - plannedDay) / 86400000
+      );
+
+      // Keine Zuordnung zu weit entfernten Tagen
+      if (daysApart > 2) continue;
+
+      const actualKm = (run.distanceMeters || 0) / 1000;
+
+      if (actualKm <= 0) continue;
+
+      // Ein kurzer Lauf darf nicht als Longrun gelten.
+      if (
+        isLongRun &&
+        targetKm &&
+        actualKm < targetKm * 0.78
+      ) {
+        continue;
+      }
+
+      // Andere Einheiten müssen zumindest grob zur
+      // geplanten Distanz passen.
+      if (
+        !isLongRun &&
+        targetKm &&
+        actualKm < targetKm * 0.55
+      ) {
+        continue;
+      }
+
+      let score = daysApart * 20;
+
+      if (targetKm) {
+        score +=
+          Math.abs(actualKm - targetKm) /
+          targetKm * 30;
+      }
+
+      // Einheiten nur dann zuordnen, wenn die
+      // Übereinstimmung ausreichend plausibel ist.
+      if (score <= 55) {
+        candidates.push({
+          pi,
+          ri,
+          score
+        });
+      }
+    }
+  }
+
+  // Die besten Übereinstimmungen zuerst vergeben.
+  candidates.sort((a, b) => a.score - b.score);
+
+  for (const candidate of candidates) {
+    if (result.has(candidate.pi)) continue;
+    if (usedRuns.has(candidate.ri)) continue;
+
+    result.set(
+      candidate.pi,
+      runs[candidate.ri]
+    );
+
+    usedRuns.add(candidate.ri);
+  }
+
+  return result;
 }
 
 function adaptive(wi) {
@@ -245,8 +333,10 @@ function render() {
     </div>
   `;
 
-  $('#sessions').innerHTML = w.sessions.map(x => {
-    const actual = match(state.week, x);
+  const assignments = matchWeek(state.week);
+
+$('#sessions').innerHTML = w.sessions.map((x, i) => {
+  const a = assignments.get(i) || null;
 
     return `
       <div class="workout">
