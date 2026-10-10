@@ -123,33 +123,41 @@ function weekSessions(w) {
     );
 }
 
+
 function match(wi, planned) {
-  const w = state.data?.plan?.[wi];
-
-  if (!w) return null;
-
-  const runs = weekSessions(w);
+  const week = state.data.plan[wi];
+  const runs = weekSessions(week);
 
   if (!runs.length) return null;
 
-  const plannedTime = new Date(
-    `${planned.date}T12:00:00`
-  ).getTime();
+  // Nur Läufe in einem passenden Zeitfenster zuordnen.
+  // Ein Lauf wird nicht automatisch einer weit entfernten
+  // geplanten Einheit zugeordnet.
+  const plannedDate = new Date(
+    planned.date + "T12:00:00"
+  );
 
-  return runs
+  const candidates = runs
     .map(s => {
-      const date = sessionDate(s);
+      const runDate = new Date(s.startTime);
+      const daysApart = Math.abs(
+        (new Date(
+          runDate.getFullYear(),
+          runDate.getMonth(),
+          runDate.getDate()
+        ) - new Date(
+          plannedDate.getFullYear(),
+          plannedDate.getMonth(),
+          plannedDate.getDate()
+        )) / 86400000
+      );
 
-      const actualTime = date
-        ? new Date(`${date}T12:00:00`).getTime()
-        : new Date(s.startTime).getTime();
-
-      return {
-        s,
-        score: Math.abs(actualTime - plannedTime)
-      };
+      return { s, daysApart };
     })
-    .sort((a, b) => a.score - b.score)[0]?.s || null;
+    .filter(x => x.daysApart <= 1)
+    .sort((a, b) => a.daysApart - b.daysApart);
+
+  return candidates[0]?.s || null;
 }
 
 function adaptive(wi) {
